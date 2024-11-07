@@ -4,6 +4,7 @@
 # identify high-engagement customers.
 
 import boto3
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lag, avg, unix_timestamp
 from pyspark.sql.window import Window
@@ -35,7 +36,6 @@ sales_input = "s3a://zp-demo-buck/source/sales.csv"
 sales_df = spark.read.csv(sales_input, header=True, inferSchema=True)
 sales_df = sales_df.withColumn("purchase_date", col("purchase_date").cast(TimestampType()))
 
-
 # Load customer data from DynamoDB
 response = table.scan()
 cust_data = response['Items']
@@ -43,8 +43,15 @@ cust_data = response['Items']
 # Convert the DynamoDB items to DataFrame
 cust_df = spark.createDataFrame(cust_data)
 
+print("Customer Data from DynamoDB:")
+cust_df.show()
+print("Transaction Data from S3:")
+sales_df.show()
+
 # Join DataFrames on customer_id
 joined_df = sales_df.join(cust_df, on="customer_id", how="inner")
+print("Joined DataFrame:")
+joined_df.show()
 
 # Define window partitioned by customer_id and ordered by purchase_date
 window_spec = Window.partitionBy("customer_id").orderBy("purchase_date")
@@ -69,6 +76,7 @@ avg_interval_df = avg_interval_df.withColumn(
 
 # Identify high-engagement customers (e.g., customers with average interval < 30 days)
 high_engagement_df = avg_interval_df.filter(col("avg_purchase_interval_days") < 30)
+print("High-Engagement Customers:")
 high_engagement_df.show()
 
 print("Customer purchase interval analysis completed.")
